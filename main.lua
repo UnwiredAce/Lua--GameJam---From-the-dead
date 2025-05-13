@@ -28,6 +28,13 @@ local blobs = {}
 local blobSpawnTimer = 1
 local blobNextSpawnTime = math.random(2, 5)
 
+local gameTimer = 0
+local gameend = 60
+local soulCount = 0
+
+local canSpawn = true
+local canShuffle = true
+
 local function loadCardImages()
     for _, suit in ipairs(suits) do
         for _, rank in ipairs(ranks) do
@@ -60,10 +67,10 @@ local function shuffleDeck()
 end
 
 local function handSet()
-    local xOffset = 15
+    local xOffset = 140
     local yOffset = 400
-    local spacing = 80
-    for i = 1, 9 do
+    local spacing = 85
+    for i = 1, 7 do
         local card = table.remove(deck)
         card.x = xOffset
         card.y = yOffset
@@ -73,10 +80,11 @@ local function handSet()
         card.height = 150
         table.insert(hand, card)
         xOffset = xOffset + spacing
+        table.remove(card)
     end
 end
 
-local function isCardInSet(card, set)
+local function isCardInSet(card, set) --check for car in the set or not
     for i, c in ipairs(set) do
         if c == card then
             return i
@@ -85,7 +93,7 @@ local function isCardInSet(card, set)
     return nil
 end
 
-local function setSelection()
+local function setSelection() --select and deselect cards
     if selectedCard then
         local index = isCardInSet(selectedCard, selectedSet)
         if index then
@@ -100,7 +108,7 @@ local function setSelection()
     end
 end
 
-local function countRanksAndSuits(cards)
+local function countRanksAndSuits(cards) --get the count of rank and suit to find the number and suit combination
     local rankCount = {}
     local suitCount = {}
     for _, card in ipairs(cards) do
@@ -112,7 +120,7 @@ local function countRanksAndSuits(cards)
     return rankCount, suitCount
 end
 
-local function evaluateHand(cards)
+local function evaluateHand(cards) --to determine the level of combination with the rank and suit
     if #cards < 2 then return "Not enough cards" end
     local rankCount, suitCount = countRanksAndSuits(cards)
     local pairCount = 0
@@ -162,8 +170,8 @@ local function cardDiscard()
         local selected = selectedSet[i]
         for j = #hand, 1, -1 do
             if hand[j] == selected then
-                table.remove(hand, j)
                 local newCard = table.remove(deck)
+                table.insert(deck, table.remove(hand, j))
                 if newCard then
                     newCard.x = selected.originalX
                     newCard.y = selected.originalY
@@ -184,7 +192,17 @@ local function setPlay()
         handResult = "No cards selected"
         return
     end
+
     handResult = evaluateHand(selectedSet)
+
+    for i = #blobs, 1, -1 do
+        local blob = blobs[i]
+        blob.health = blob.health - damage
+        if blob.health <= 0 then
+            table.remove(blobs, i)
+        end
+    end
+
     cardDiscard()
 end
 
@@ -193,6 +211,14 @@ local function setReload()
         selectedSet[i] = nil
     end
     count = 0
+end
+
+local function handReload()
+    for i = #hand, 1, -1 do
+        table.insert(deck, table.remove(hand, i))
+    end
+    shuffleDeck()
+    handSet()
 end
 
 local function spawnBlob()
@@ -205,7 +231,7 @@ local function spawnBlob()
         spriteSheet = love.graphics.newImage('sprites/blob.png')
     }
     blob.grid = anim8.newGrid(32, 32, blob.spriteSheet:getWidth(), blob.spriteSheet:getHeight())
-    blob.animationWalk = anim8.newAnimation(blob.grid("1-18", 1), 0.05)
+    blob.animationWalk = anim8.newAnimation(blob.grid("1-18", 1), 0.1)
     blob.anim = blob.animationWalk
     table.insert(blobs, blob)
 end
@@ -221,25 +247,28 @@ end
 
 function love.keypressed(key)
     if key == "return" then
+        shuffleDeck()
         setPlay()
         setReload()
+        damage = 0
     end
     if key == "space" then
+        shuffleDeck()
         cardDiscard()
+        setReload()
+    end
+    if key == "r" then
+        handReload()
     end
 end
 
 function love.update(dt)
+    gameTimer = gameTimer + dt
     blobSpawnTimer = blobSpawnTimer + dt
-    if blobSpawnTimer >= blobNextSpawnTime then
+    if blobSpawnTimer >= blobNextSpawnTime and canSpawn then
         spawnBlob()
         blobSpawnTimer = 0
-        blobNextSpawnTime = math.random(2, 5)
-    end
-
-    for _, blob in ipairs(blobs) do
-        blob.x = blob.x - blob.speed * dt
-        blob.anim:update(dt)
+        blobNextSpawnTime = math.random(2, 6)
     end
 
     for i = #blobs, 1, -1 do
@@ -247,8 +276,18 @@ function love.update(dt)
     blob.x = blob.x - blob.speed * dt
     blob.anim:update(dt)
 
-    if blob.x < -32 then  -- fully off the screen
+    if gameTimer < gameend then
+        canSpawn = true
+    else
+        canSpawn = false
+        if gameTimer > gameend then
+            gameTimer = gameend
+        end
+    end
+
+    if blob.x < -32 then
         table.remove(blobs, i)
+        soulCount = soulCount + 1
     end
 end
 end
@@ -265,8 +304,10 @@ function love.draw()
     end
 
     love.graphics.print("SelectedIndex: " .. #selectedSet, 10 , 10)
-    love.graphics.print("Hand Result: " .. handResult, 10, 30)
-    love.graphics.print("Damage Dealt: " .. damage, 10, 45)
+    love.graphics.print("Hand Result: " .. handResult, 10, 25)
+    love.graphics.print("Damage Dealt: " .. damage, 10, 40)
+    love.graphics.print("Timer: " .. gameTimer, 10, 55)
+    love.graphics.print("Escaped: " .. soulCount, 10, 70)
 end
 
 function love.mousepressed(x, y, button)
@@ -274,7 +315,6 @@ function love.mousepressed(x, y, button)
         for _, card in ipairs(hand) do
             if x >= card.x and x <= card.x + card.width and y >= card.y and y <= card.y + card.height then
                 selectedCard = card
-                damage = 0
                 break
             end
         end
