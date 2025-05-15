@@ -31,6 +31,8 @@ local blobSpawnTimer = 1
 local blobNextSpawnTime = 2
 
 local gameTimer = 0
+local startTimer = 5
+local waitTimer = 5
 local soulCount = 0
 local canSpawn = true
 
@@ -230,8 +232,6 @@ function love.keypressed(key)
         shuffleDeck()
         cardDiscard()
         setReload()
-    elseif key == "r" then
-        handReload()
     elseif key == "z" then
         currentZoneIndex = 1
         currentZone = zones[currentZoneIndex]
@@ -245,7 +245,7 @@ function love.update(dt)
     gameTimer = gameTimer + dt
     blobSpawnTimer = blobSpawnTimer + dt
 
-    if blobSpawnTimer >= blobNextSpawnTime and canSpawn then
+    if blobSpawnTimer >= blobNextSpawnTime and canSpawn and gameTimer > startTimer then
         spawnBlob()
         blobSpawnTimer = 0
         blobNextSpawnTime = math.random(currentZone.spawnRate.min * 10, currentZone.spawnRate.max * 10) / 10
@@ -269,6 +269,8 @@ function love.update(dt)
 
     if gameTimer >= currentZone.zoneEnd then
         currentZoneIndex = currentZoneIndex + 1
+        hand = {}
+        blobs = {}
         if zones[currentZoneIndex] then
             currentZone = zones[currentZoneIndex]
             gameTimer = 0
@@ -280,23 +282,27 @@ function love.update(dt)
 end
 
 function love.draw()
-    love.graphics.draw(rack, 10, 315, 0, 4, 4)
-    for _, card in ipairs(hand) do
-        local cardImage = cardImages[card.name]
-        love.graphics.draw(cardImage, card.x, card.y, nil, 2, 2)
+    if gameTimer > startTimer then
+        love.graphics.draw(rack, 10, 315, 0, 4, 4)
+        for _, card in ipairs(hand) do
+            local cardImage = cardImages[card.name]
+            love.graphics.draw(cardImage, card.x, card.y, nil, 2, 2)
+        end
+        for _, blob in ipairs(blobs) do
+            blob.anim:draw(blob.spriteSheet, blob.x, blob.y, nil, 3)
+        end
+        love.graphics.print("SelectedIndex: " .. #selectedSet, 10 , 10)
+        love.graphics.print("Hand Result: " .. handResult, 10, 25)
+        love.graphics.print("Damage Dealt: " .. damage, 10, 40)
+        love.graphics.print("Timer: " .. math.floor(gameTimer), 10, 55)
+        love.graphics.print("Escaped: " .. soulCount, 10, 70)
+        love.graphics.print("Current Zone: " .. currentZone.name, 10, 85)
+        if soulCount >= currentZone.zoneDeath then
+            love.graphics.print("GAME OVER!", 325, 200, nil, 2, 2)
+        end
     end
-    for _, blob in ipairs(blobs) do
-        blob.anim:draw(blob.spriteSheet, blob.x, blob.y, nil, 3)
-    end
-    love.graphics.print("SelectedIndex: " .. #selectedSet, 10 , 10)
-    love.graphics.print("Hand Result: " .. handResult, 10, 25)
-    love.graphics.print("Damage Dealt: " .. damage, 10, 40)
-    love.graphics.print("Timer: " .. math.floor(gameTimer), 10, 55)
-    love.graphics.print("Escaped: " .. soulCount, 10, 70)
-    love.graphics.print("Current Zone: " .. currentZone.name, 10, 85)
-    if soulCount >= currentZone.zoneDeath then
-        love.graphics.print("GAME OVER!", 325, 200, nil, 2, 2)
-    end
+
+
 end
 
 function love.mousepressed(x, y, button)
