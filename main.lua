@@ -31,14 +31,14 @@ local blobSpawnTimer = 1
 local blobNextSpawnTime = 2
 
 local gameTimer = 0
+local zoneTimer = 0
 local startTimer = 5
-local waitTimer = 5
 local soulCount = 0
 local canSpawn = true
 
 local zones = {
-    { name = "Zone 1", zoneEnd = 60, spawnRate = {min = 2, max = 4}, zoneDeath = 5 },
-    { name = "Zone 2", zoneEnd = 90, spawnRate = {min = 1, max = 3}, zoneDeath = 4 },
+    { name = "Zone 1", zoneEnd = 5, spawnRate = {min = 2, max = 4}, zoneDeath = 5 },
+    { name = "Zone 2", zoneEnd = 5, spawnRate = {min = 1, max = 3}, zoneDeath = 4 },
     { name = "Zone 3", zoneEnd = 120, spawnRate = {min = 0.5, max = 2}, zoneDeath = 3 }
 }
 
@@ -245,6 +245,10 @@ function love.update(dt)
     gameTimer = gameTimer + dt
     blobSpawnTimer = blobSpawnTimer + dt
 
+    if gameTimer > startTimer then
+        zoneTimer = zoneTimer + dt
+    end
+
     if blobSpawnTimer >= blobNextSpawnTime and canSpawn and gameTimer > startTimer then
         spawnBlob()
         blobSpawnTimer = 0
@@ -267,13 +271,15 @@ function love.update(dt)
         blobs = {}
     end
 
-    if gameTimer >= currentZone.zoneEnd then
+    if zoneTimer >= currentZone.zoneEnd then
         currentZoneIndex = currentZoneIndex + 1
         hand = {}
         blobs = {}
+        handSet()
         if zones[currentZoneIndex] then
             currentZone = zones[currentZoneIndex]
             gameTimer = 0
+            zoneTimer = 0
             soulCount = 0
         else
             canSpawn = false
@@ -294,7 +300,7 @@ function love.draw()
         love.graphics.print("SelectedIndex: " .. #selectedSet, 10 , 10)
         love.graphics.print("Hand Result: " .. handResult, 10, 25)
         love.graphics.print("Damage Dealt: " .. damage, 10, 40)
-        love.graphics.print("Timer: " .. math.floor(gameTimer), 10, 55)
+        love.graphics.print("Timer: " .. math.floor(zoneTimer), 10, 55)
         love.graphics.print("Escaped: " .. soulCount, 10, 70)
         love.graphics.print("Current Zone: " .. currentZone.name, 10, 85)
         if soulCount >= currentZone.zoneDeath then
