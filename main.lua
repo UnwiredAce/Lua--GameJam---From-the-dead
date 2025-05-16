@@ -288,6 +288,7 @@ function love.update(dt)
 end
 
 function love.draw()
+
     if gameTimer > startTimer then
         love.graphics.draw(rack, 10, 315, 0, 4, 4)
         for _, card in ipairs(hand) do
@@ -302,11 +303,11 @@ function love.draw()
         love.graphics.print("Damage Dealt: " .. damage, 10, 40)
         love.graphics.print("Timer: " .. math.floor(zoneTimer), 10, 55)
         love.graphics.print("Escaped: " .. soulCount, 10, 70)
-        love.graphics.print("Current Zone: " .. currentZone.name, 10, 85)
         if soulCount >= currentZone.zoneDeath then
             love.graphics.print("GAME OVER!", 325, 200, nil, 2, 2)
         end
     end
+    love.graphics.print("Current Zone: " .. currentZone.name, 10, 85)
 
 
 end
