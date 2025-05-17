@@ -24,11 +24,11 @@ sti = require('libraries/sti')
 
 love.graphics.setDefaultFilter("nearest", "nearest")
 
-local lanesY = {75, 125, 175, 225}
+local lanesY = {50, 150, 250}
 
 local blobs = {}
-local blobSpawnTimer = 1
-local blobNextSpawnTime = 2
+local marks = {}
+local gregs = {}
 
 local gameTimer = 0
 local zoneTimer = 0
@@ -36,10 +36,12 @@ local startTimer = 5
 local soulCount = 0
 local canSpawn = true
 
+
+
 local zones = {
     { name = "Zone 1", zoneEnd = 5, spawnRate = {min = 2, max = 4}, zoneDeath = 5 },
-    { name = "Zone 2", zoneEnd = 5, spawnRate = {min = 1, max = 3}, zoneDeath = 4 },
-    { name = "Zone 3", zoneEnd = 120, spawnRate = {min = 0.5, max = 2}, zoneDeath = 3 }
+    { name = "Zone 2", zoneEnd = 5, spawnRate = {min = 2, max = 4}, zoneDeath = 4 },
+    { name = "Zone 3", zoneEnd = 120, spawnRate = {min = 2, max = 4}, zoneDeath = 3 }
 }
 
 local currentZoneIndex = 1
@@ -142,9 +144,9 @@ local function evaluateHand(cards)
         if count == #cards then isFlush = true break end
     end
 
-    if fourOfKind then damage = damage + 15 return "Four of a Kind" end
-    if threeOfKind and pairCount >= 1 then damage = damage + 9 return "Full House" end
-    if isFlush then damage = damage + 7 return "Flush" end
+    if fourOfKind then damage = damage + 10 return "Four of a Kind" end
+    if threeOfKind and pairCount >= 1 then damage = damage + 79 return "Full House" end
+    if isFlush then damage = damage + 6 return "Flush" end
     if threeOfKind then damage = damage + 5 return "Three of a Kind" end
     if pairCount == 2 then damage = damage + 4 return "Two Pair" end
     if pairCount == 1 then damage = damage + 2 return "One Pair" end
@@ -183,6 +185,14 @@ local function setPlay()
         blobs[i].health = blobs[i].health - damage
         if blobs[i].health <= 0 then table.remove(blobs, i) end
     end
+    for i = #marks, 1, -1 do
+        marks[i].health = marks[i].health - damage
+        if marks[i].health <= 0 then table.remove(marks, i) end
+    end
+    for i = #gregs, 1, -1 do
+        gregs[i].health = gregs[i].health - damage
+        if gregs[i].health <= 0 then table.remove(gregs, i) end
+    end
     cardDiscard()
 end
 
@@ -211,6 +221,64 @@ local function spawnBlob()
     table.insert(blobs, blob)
 end
 
+local function spawnMark()
+    local laneY = lanesY[math.random(1, #lanesY)]
+    local mark = {
+        x = 700, y = laneY, speed = 150, health = 2,
+        spriteSheet = love.graphics.newImage('sprites/mark.png')
+    }
+    mark.grid = anim8.newGrid(32, 32, mark.spriteSheet:getWidth(), mark.spriteSheet:getHeight())
+    mark.animationWalk = anim8.newAnimation(mark.grid("1-12", 1), 0.1)
+    mark.anim = mark.animationWalk
+    table.insert(marks, mark)
+end
+
+local function spawnGreg()
+    local laneY = lanesY[math.random(1, #lanesY)]
+    local greg = {
+        x = 700, y = laneY, speed = 20, health = 10,
+        spriteSheet = love.graphics.newImage('sprites/greg.png')
+    }
+    greg.grid = anim8.newGrid(32, 32, greg.spriteSheet:getWidth(), greg.spriteSheet:getHeight())
+    greg.animationWalk = anim8.newAnimation(greg.grid("1-12", 1), 0.1)
+    greg.anim = greg.animationWalk
+    table.insert(gregs, greg)
+end
+
+local enemyTypes = {
+    {
+        name = "blob",
+        condition = function() return currentZoneIndex >= 1 end,
+        spawnFunction = spawnBlob,
+        timer = 0,
+        nextTime = 1,
+        minDelay = 2,
+        maxDelay = 4,
+        health = 4
+    },
+    {
+        name = "mark",
+        condition = function() return currentZoneIndex >= 2 end,
+        spawnFunction = spawnMark,
+        timer = 0,
+        nextTime = 1,
+        minDelay = 1,
+        maxDelay = 3,
+        health = 2
+    },
+    {
+        name = "greg",
+        condition = function() return currentZoneIndex == 3 end,
+        spawnFunction = spawnGreg,
+        timer = 0,
+        nextTime = 1,
+        minDelay = 40,
+        maxDelay = 50,
+        health = 10,
+        delayMultiplier = 1.5
+    }
+}
+
 function love.load()
     math.randomseed(os.time())
     loadCardImages()
@@ -218,6 +286,7 @@ function love.load()
     shuffleDeck()
     handSet()
     rack = love.graphics.newImage("sprites/Rack.png")
+    base = love.graphics.newImage("sprites/Base.png")
 end
 
 function love.keypressed(key)
@@ -243,16 +312,27 @@ end
 
 function love.update(dt)
     gameTimer = gameTimer + dt
-    blobSpawnTimer = blobSpawnTimer + dt
 
     if gameTimer > startTimer then
         zoneTimer = zoneTimer + dt
     end
+    
 
-    if blobSpawnTimer >= blobNextSpawnTime and canSpawn and gameTimer > startTimer then
-        spawnBlob()
-        blobSpawnTimer = 0
-        blobNextSpawnTime = math.random(currentZone.spawnRate.min * 10, currentZone.spawnRate.max * 10) / 10
+    for _, enemy in ipairs(enemyTypes) do
+        enemy.timer = enemy.timer + dt
+
+        if canSpawn and gameTimer > startTimer and enemy.condition() then
+            if enemy.timer >= enemy.nextTime then
+                if #blobs + #marks + #gregs < 10 then
+                    enemy.spawnFunction()
+                    enemy.timer = 0
+                    local min = currentZone.spawnRate.min
+                    local max = currentZone.spawnRate.max
+                    local multiplier = enemy.delayMultiplier or 1
+                    enemy.nextTime = math.random(min * 10, max * 10) / 10 * multiplier
+                end
+            end
+        end
     end
 
     for i = #blobs, 1, -1 do
@@ -265,16 +345,40 @@ function love.update(dt)
         end
     end
 
+    for i = #marks, 1, -1 do
+        local mark = marks[i]
+        mark.x = mark.x - mark.speed * dt
+        mark.anim:update(dt)
+        if mark.x < -32 then
+            table.remove(marks, i)
+            soulCount = soulCount + 1
+        end
+    end
+
+    for i = #gregs, 1, -1 do
+        local greg = gregs[i]
+        greg.x = greg.x - greg.speed * dt
+        greg.anim:update(dt)
+        if greg.x < -32 then
+            table.remove(gregs, i)
+            soulCount = soulCount + 2
+        end
+    end
+
     if soulCount >= currentZone.zoneDeath then
         canSpawn = false
         hand = {}
         blobs = {}
+        marks = {}
+        gregs = {}
     end
 
     if zoneTimer >= currentZone.zoneEnd then
         currentZoneIndex = currentZoneIndex + 1
         hand = {}
         blobs = {}
+        marks = {}
+        gregs = {}
         handSet()
         if zones[currentZoneIndex] then
             currentZone = zones[currentZoneIndex]
@@ -290,6 +394,7 @@ end
 function love.draw()
 
     if gameTimer > startTimer then
+        love.graphics.draw(base, 0, 0, 0, 4, 4)
         love.graphics.draw(rack, 10, 315, 0, 4, 4)
         for _, card in ipairs(hand) do
             local cardImage = cardImages[card.name]
@@ -297,6 +402,12 @@ function love.draw()
         end
         for _, blob in ipairs(blobs) do
             blob.anim:draw(blob.spriteSheet, blob.x, blob.y, nil, 3)
+        end
+        for _, mark in ipairs(marks) do
+            mark.anim:draw(mark.spriteSheet, mark.x, mark.y, nil, 3)
+        end
+        for _, greg in ipairs(gregs) do
+            greg.anim:draw(greg.spriteSheet, greg.x, greg.y, nil, 3)
         end
         love.graphics.print("SelectedIndex: " .. #selectedSet, 10 , 10)
         love.graphics.print("Hand Result: " .. handResult, 10, 25)
@@ -306,8 +417,8 @@ function love.draw()
         if soulCount >= currentZone.zoneDeath then
             love.graphics.print("GAME OVER!", 325, 200, nil, 2, 2)
         end
+        love.graphics.print("Current Zone: " .. currentZone.name, 10, 85)
     end
-    love.graphics.print("Current Zone: " .. currentZone.name, 10, 85)
 
 
 end
