@@ -34,8 +34,9 @@ local gameTimer = 0
 local zoneTimer = 0
 local startTimer = 5
 local soulCount = 0
-local canSpawn = true
 
+local canStart = false
+local canSpawn = true
 
 
 local zones = {
@@ -287,6 +288,8 @@ function love.load()
     handSet()
     rack = love.graphics.newImage("sprites/Rack.png")
     base = love.graphics.newImage("sprites/Base.png")
+    board = love.graphics.newImage("sprites/billboard.png")
+    logo = love.graphics.newImage("sprites/SushiHunterCorps.png")
 end
 
 function love.keypressed(key)
@@ -392,8 +395,11 @@ function love.update(dt)
 end
 
 function love.draw()
-
+    love.graphics.draw(logo, 280, 150, nil, 2, 2)
     if gameTimer > startTimer then
+        love.graphics.draw(board, -110, -210, nil, 2, 2)
+    end
+    if gameTimer > 20 then
         love.graphics.draw(base, 0, 0, 0, 4, 4)
         love.graphics.draw(rack, 10, 315, 0, 4, 4)
         for _, card in ipairs(hand) do
@@ -419,8 +425,6 @@ function love.draw()
         end
         love.graphics.print("Current Zone: " .. currentZone.name, 10, 85)
     end
-
-
 end
 
 function love.mousepressed(x, y, button)
